@@ -4,7 +4,7 @@ set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_VERBOSE_MAKEFILE ON)
 
 set(pytorch_android_DIR ${CMAKE_CURRENT_LIST_DIR}/src/main/cpp)
-set(libtorch_include_DIR ${pytorch_android_DIR}/include)
+set(libtorch_include_DIR ${pytorch_android_DIR}/libtorch_include/${ANDROID_ABI})
 
 set(libtorch_SO ${CMAKE_CURRENT_LIST_DIR}/src/main/jniLibs/${ANDROID_ABI}/libtorch.so)
 set(libc10_SO ${CMAKE_CURRENT_LIST_DIR}/src/main/jniLibs/${ANDROID_ABI}/libc10.so)
@@ -30,14 +30,10 @@ target_compile_options(pytorch PRIVATE
 )
 
 target_include_directories(pytorch PUBLIC
-    ${pytorch_android_DIR}
     ${libtorch_include_DIR}
 )
 
 set(EXTERNAL_DIR ${CMAKE_CURRENT_LIST_DIR}/../libs/third-party/)
-set(BUILD_DIR ${CMAKE_SOURCE_DIR}/build)
-file(MAKE_DIRECTORY ${BUILD_DIR})
-
 set(BUILD_DIR ${CMAKE_SOURCE_DIR}/build)
 file(MAKE_DIRECTORY ${BUILD_DIR})
 

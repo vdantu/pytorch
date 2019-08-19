@@ -20,6 +20,10 @@ public class Module {
     return mNativePeer.forward(inputs);
   }
 
+  public IValue runMethod(String methodName, IValue... inputs) {
+    return mNativePeer.runMethod(methodName, inputs);
+  }
+
   private static class NativePeer {
     static {
       System.loadLibrary("pytorch");
@@ -34,5 +38,7 @@ public class Module {
     }
 
     private native IValue forward(IValue... inputs);
+
+    private native IValue runMethod(String methodName, IValue... inputs);
   }
 }
