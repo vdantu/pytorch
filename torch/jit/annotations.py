@@ -38,6 +38,7 @@ _eval_env = {
 
 
 def get_signature(fn):
+    print("Getting signature", fn)
     # Python 3.5 adds support for the nice annotation syntax, so try that first.
     if PY35:
         sig = try_real_annotations(fn)
@@ -168,6 +169,7 @@ def split_type_line(type_line):
 
     """
     start_offset = len('# type:')
+    print(type_line)
     try:
         arrow_pos = type_line.index('->')
     except ValueError:
