@@ -743,7 +743,13 @@ void initJitScriptBindings(PyObject* module) {
             if (i > 0) {
               ss << ", ";
             }
-            ss << *types.at(i);
+            if (types.at(i)->kind() == TypeKind::ClassType) {
+              throw ErrorReport(def.range())
+                  << "Class types cannot be templated, the types must"
+                     " be added manually for this function";
+            }
+
+            ss << types.at(i)->python_str();
           }
           ss << ")";
 
