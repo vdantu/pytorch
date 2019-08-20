@@ -182,7 +182,8 @@ def try_compile_fn(fn, loc, _arg_types=None):
     # extract the necessary info from the closed over variables on the function
     # object
     rcb = _jit_internal.createResolutionCallbackFromClosure(fn)
-    return torch.jit.script(fn, _rcb=rcb, _arg_types=_arg_types)
+    qualified_name = torch.jit._qualified_name(fn)
+    return torch.jit._compile_function(fn, qualified_name, _frames_up=0, _rcb=rcb, _arg_types=_arg_types)
 
 
 def create_constant_iterable_module(module):

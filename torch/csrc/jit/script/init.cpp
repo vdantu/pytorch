@@ -2,7 +2,6 @@
 
 #include <torch/csrc/Device.h>
 #include <torch/csrc/jit/import.h>
-#include <torch/csrc/jit/script/tree_views.h>
 #include <torch/csrc/jit/script/compiler.h>
 #include <torch/csrc/jit/script/module.h>
 #include <torch/csrc/jit/script/module_python.h>
@@ -248,7 +247,6 @@ static StrongFunctionPtr script_compile_function(
     const FunctionDefaults& defaults,
     ResolutionCallback rcb) {
   auto cu = get_python_cu();
-
   auto defined_functions = cu->define(
       QualifiedName(name.prefix()),
       {def},
