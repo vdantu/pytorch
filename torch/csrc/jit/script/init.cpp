@@ -2,6 +2,7 @@
 
 #include <torch/csrc/Device.h>
 #include <torch/csrc/jit/import.h>
+#include <torch/csrc/jit/script/tree_views.h>
 #include <torch/csrc/jit/script/compiler.h>
 #include <torch/csrc/jit/script/module.h>
 #include <torch/csrc/jit/script/module_python.h>
@@ -247,6 +248,7 @@ static StrongFunctionPtr script_compile_function(
     const FunctionDefaults& defaults,
     ResolutionCallback rcb) {
   auto cu = get_python_cu();
+
   auto defined_functions = cu->define(
       QualifiedName(name.prefix()),
       {def},
@@ -725,9 +727,32 @@ void initJitScriptBindings(PyObject* module) {
       [](const std::string& qualname,
          const Def& def,
          ResolutionCallback rcb,
-         const FunctionDefaults& defaults) {
+         const FunctionDefaults& defaults,
+         py::object arg_types) {
         C10_LOG_API_USAGE_ONCE("torch.script.compile");
         const auto name = c10::QualifiedName(qualname);
+
+        // If there are types provided for this call, use them to construct a
+        // templated version of this function for those types
+        if (!arg_types.is_none()) {
+          auto types = py::cast<std::vector<TypePtr>>(arg_types);
+           TORCH_INTERNAL_ASSERT(def.decl().params().size() == types.size());
+          std::stringstream ss;
+          ss << "# type:(";
+          for (size_t i = 0; i < types.size(); i++) {
+            if (i > 0) {
+              ss << ", ";
+            }
+            ss << *types.at(i);
+          }
+          ss << ")";
+
+          Parser p(std::make_shared<Source>(ss.str()));
+          Decl type_decl = p.parseTypeComment();
+          auto new_def = def.withDecl(mergeTypesFromTypeComment(def.decl(), type_decl, /*is_method=*/false));
+          return script_compile_function(name, new_def, defaults, std::move(rcb));
+        }
+
         TORCH_INTERNAL_ASSERT(name.name() == def.name().name());
         return script_compile_function(name, def, defaults, std::move(rcb));
       });

@@ -128,6 +128,48 @@ std::shared_ptr<SugaredValue> PythonValue::call(
   return std::make_shared<SimpleValue>(output);
 }
 
+struct TemplatedFunctionValue : public SugaredValue {
+  TemplatedFunctionValue(py::object callee) : callee_(std::move(callee)) {}
+
+  std::string kind() const override {
+    return "templated function";
+  }
+
+  std::shared_ptr<SugaredValue> call(
+      const SourceRange& loc,
+      Function& f,
+      at::ArrayRef<NamedValue> inputs,
+      at::ArrayRef<NamedValue> attributes,
+      size_t n_binders) override {
+
+    // TODO: de-duplicate this with FunctionValue
+    std::vector<TypePtr> arg_types;
+    for (auto input : inputs) {
+      auto type = input.value(*f.graph().get())->type();
+      std::cout << "\t" << type << "\n";
+      arg_types.push_back(type);
+    }
+    auto res = py::module::import("torch.jit._recursive")
+                   .attr("try_compile_fn")(callee_, loc, arg_types);
+    auto compiled_callee = as_function(res);
+
+    compiled_callee->function_->ensure_defined();
+    MatchedSchema match = matchSchema(
+        compiled_callee->function_->getSchema(),
+        loc,
+        *f.graph(),
+        inputs,
+        attributes);
+    Value* output =
+        f.graph()->insertFunctionCall(compiled_callee->function_, match);
+    output->node()->setSourceRange(loc);
+    return std::make_shared<SimpleValue>(output);
+  }
+
+ private:
+  py::object callee_;
+};
+
 std::string PythonValue::kind() const {
   std::stringstream ss;
   ss << "python value of type '" << typeString(self) << "'";
@@ -583,6 +625,7 @@ std::shared_ptr<SugaredValue> toSugaredValue(
       return std::make_shared<OverloadedFunctionValue>(std::move(compiled_fns));
     }
 
+    return std::make_shared<TemplatedFunctionValue>(obj);
     auto compiled_fn =
         py::module::import("torch.jit._recursive").attr("try_compile_fn")(obj, loc);
     if (auto callee = as_function(compiled_fn)) {

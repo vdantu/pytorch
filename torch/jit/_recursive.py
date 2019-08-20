@@ -163,7 +163,7 @@ def make_strong_submodule(field, module, parent):
     return new_strong_submodule
 
 
-def try_compile_fn(fn, loc):
+def try_compile_fn(fn, loc, _arg_types=None):
     if _jit_internal.is_ignored_fn(fn):
         # Don't do anything for @ignore'd functions
         return None
@@ -182,7 +182,7 @@ def try_compile_fn(fn, loc):
     # extract the necessary info from the closed over variables on the function
     # object
     rcb = _jit_internal.createResolutionCallbackFromClosure(fn)
-    return torch.jit.script(fn, _rcb=rcb)
+    return torch.jit.script(fn, _rcb=rcb, _arg_types=_arg_types)
 
 
 def create_constant_iterable_module(module):
