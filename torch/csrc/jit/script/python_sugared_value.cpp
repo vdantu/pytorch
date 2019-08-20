@@ -142,28 +142,17 @@ struct TemplatedFunctionValue : public SugaredValue {
       at::ArrayRef<NamedValue> attributes,
       size_t n_binders) override {
 
-    // TODO: de-duplicate this with FunctionValue
+    // Compile the function with known argument types
     std::vector<TypePtr> arg_types;
     for (auto input : inputs) {
       auto type = input.value(*f.graph().get())->type();
-      std::cout << "\t" << type << "\n";
       arg_types.push_back(type);
     }
     auto res = py::module::import("torch.jit._recursive")
                    .attr("try_compile_fn")(callee_, loc, arg_types);
     auto compiled_callee = as_function(res);
-
-    compiled_callee->function_->ensure_defined();
-    MatchedSchema match = matchSchema(
-        compiled_callee->function_->getSchema(),
-        loc,
-        *f.graph(),
-        inputs,
-        attributes);
-    Value* output =
-        f.graph()->insertFunctionCall(compiled_callee->function_, match);
-    output->node()->setSourceRange(loc);
-    return std::make_shared<SimpleValue>(output);
+    return std::make_shared<FunctionValue>(compiled_callee->function_)
+        ->call(loc, f, inputs, attributes, n_binders);
   }
 
  private:
