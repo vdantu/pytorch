@@ -163,13 +163,6 @@ def make_strong_submodule(field, module, parent):
     return new_strong_submodule
 
 
-def is_templatable_function(fn):
-    """
-    Returns True if the the function has any argument specified, False otherwise
-    """
-    return torch.jit.annotations.get_signature(fn) is None
-
-
 def try_compile_fn(fn, loc, _arg_types=None):
     if _jit_internal.is_ignored_fn(fn):
         # Don't do anything for @ignore'd functions

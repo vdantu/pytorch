@@ -614,11 +614,9 @@ std::shared_ptr<SugaredValue> toSugaredValue(
       return std::make_shared<OverloadedFunctionValue>(std::move(compiled_fns));
     }
 
-
-    bool is_templated =
-        py::cast<bool>(py::module::import("torch.jit._recursive")
-                           .attr("is_templatable_function")(obj));
-    if (is_templated) {
+    bool has_type_signature = py::cast<bool>(
+        py::module::import("torch.jit.annotations").attr("has_signature")(obj));
+    if (!has_type_signature) {
       // If there is no type signature on the function, delay compilation until
       // we have the argument types
       return std::make_shared<TemplatedFunctionValue>(obj);
