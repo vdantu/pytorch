@@ -688,6 +688,7 @@ bool needsGradient(const std::shared_ptr<const Graph>& graph) {
 
 void runNondiffOptimization(std::shared_ptr<Graph>& graph) {
   // run custom passes that different backends can register
+  std::cout << "Running non diff optimization" << std::endl;
   for (const auto& pass : getCustomPasses()) {
     pass(graph);
   }

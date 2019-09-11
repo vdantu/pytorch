@@ -247,6 +247,20 @@ RegisterOperators reg(
          },
          aliasAnalysisSpecialCase()),
      Operator(
+             prim::CustomFusionGroup,
+             [](const Node* node) {
+                 const auto key = registerFusion(node);
+                 node->dump();
+                 return [key](Stack& stack) {
+                     std::cout << "Running my custom fusion" << std::endl;
+                     RECORD_FUNCTION("CustomFusionGroup", std::vector<c10::IValue>());
+                     runFusion(key, stack);
+                     runCustomFusion(key, stack);
+                     return 0;
+                 };
+             },
+             aliasAnalysisSpecialCase()),
+     Operator(
          "prim::Guard(Tensor(a) t) -> Tensor(a)",
          [](const Node* node) {
            return [](Stack& stack) {

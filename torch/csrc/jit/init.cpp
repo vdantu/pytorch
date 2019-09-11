@@ -8,6 +8,7 @@
 #include <torch/csrc/jit/fuser/kernel_cache.h>
 #include <torch/csrc/jit/graph_executor.h>
 #include <torch/csrc/jit/import.h>
+#include <torch/csrc/jit/pass_manager.h>
 #include <torch/csrc/jit/irparser.h>
 #include <torch/csrc/jit/operator.h>
 #include <torch/csrc/jit/passes/canonicalize.h>
@@ -72,6 +73,8 @@ using ::c10::Argument;
 using ::c10::FunctionSchema;
 using caffe2::serialize::PyTorchStreamReader;
 using caffe2::serialize::PyTorchStreamWriter;
+static bool enable_custom_fusion = false;
+static std::vector<std::string> fusion_devs;
 
 namespace {
 
@@ -509,7 +512,6 @@ void initJITBindings(PyObject* module) {
   };
 
   py::class_<PythonFutureWrapper>(m, "Future");
-
   m.def("fork", [](py::args args) {
     AT_ASSERT(args.size() >= 1);
 
@@ -579,6 +581,35 @@ void initJITBindings(PyObject* module) {
     toIValue(obj, type);
   });
 
+    m.def("_custom_fusion",
+          [](bool enable, std::vector<std::string> args) {
+              bool previous = enable_custom_fusion;
+              enable_custom_fusion = enable;
+              fusion_devs = std::move(args);
+              std::cout << "Enabling custom fusion on " << fusion_devs << std::endl;
+              return previous;
+          });
+
+    RegisterPass pass([](std::shared_ptr<Graph>& g) {
+       if(enable_custom_fusion) {
+           bool fuseOnCPU = canFuseOnCPU();
+           bool fuseOnGPU = canFuseOnGPU();
+           torch::jit::overrideCanFuseOnCPU(true);
+           std::cout << "Running custom fusion pass" << std::endl;
+           CustomFuseGraph(g, [](Node *n) {
+               if (get_whitelist_ops().find(n->kind()) != get_whitelist_ops().end()) {
+                   std::cout << "Adding to subgraph : " << n->kind().toDisplayString() << std::endl;
+                   n->setIsFusable(true);
+                   return true;
+                   // return false;
+               } else {
+                   std::cout << "Ignoring : " << n->kind().toUnqualString() << std::endl;
+                   return false;
+               }
+           }, prim::CustomFusionGroup, 100000);
+           torch::jit::overrideCanFuseOnCPU(fuseOnCPU);
+       }
+    });
   initPythonIRBindings(module);
   tracer::initPythonTracerBindings(module);
   script::initTreeViewBindings(module);

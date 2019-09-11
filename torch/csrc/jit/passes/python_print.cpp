@@ -1350,6 +1350,7 @@ bool printerHasSpecialCaseFor(Symbol sym) {
       prim::Drop, // used in interpreter only
       prim::FusedConcat, // optimization pass adds it
       prim::FusionGroup, // optimization pass adds it
+      prim::CustomFusionGroup, // optimization pass adds it
       prim::Load, // used in interpreter only
       prim::MMTreeReduce, // used as an optimization
       prim::MMBatchSide, // used as an optimization

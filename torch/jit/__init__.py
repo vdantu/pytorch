@@ -80,17 +80,21 @@ def scope(scope_name):
             tracing_state.pop_scope()
 
 @contextlib.contextmanager
-def optimized_execution(should_optimize):
+def optimized_execution(should_optimize, devices=None):
     """
     A context manager that controls whether the JIT's executor will run
     optimizations before executing a function.
     """
     stored_flag = torch._C._get_graph_executor_optimize()
     torch._C._set_graph_executor_optimize(should_optimize)
+    stored_custom_fusion = False
+    if devices is not None:
+        stored_custom_fusion = torch._C._custom_fusion(should_optimize, devices)
     try:
         yield
     finally:
         torch._C._set_graph_executor_optimize(stored_flag)
+        torch._C._custom_fusion(stored_custom_fusion, devices)
 
 
 DEFAULT_EXTRA_FILES_MAP = torch._C.ExtraFilesMap()
@@ -1199,6 +1203,7 @@ def script_method(fn, _rcb=None):
     #
     # createResolutionCallback internally adds 1 to get us to the scope of this
     # function (the calling function). Adding 2 gets us to the proper surrounding scope.
+    print("VDANTU: HELLO WORLD")
     if _rcb is None:
         _rcb = _jit_internal.createResolutionCallback(frames_up=2)
     ast = get_jit_def(fn, self_name="ScriptModule")

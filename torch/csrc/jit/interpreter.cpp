@@ -1,5 +1,5 @@
 #include <torch/csrc/jit/interpreter.h>
-
+#include <iostream>
 #include <ATen/Parallel.h>
 #include <ATen/core/ivalue.h>
 #include <c10/core/thread_pool.h>
@@ -15,6 +15,7 @@
 #include <torch/csrc/jit/passes/bailout_graph.h>
 #include <torch/csrc/jit/script/compilation_unit.h>
 #include <torch/csrc/jit/script/jit_exception.h>
+#include <torch/csrc/jit/script/module.h>
 
 #include <exception>
 #include <iostream>
@@ -866,13 +867,22 @@ struct InterpreterStateImpl : c10::intrusive_ptr_target {
     ActiveFrame af(frames.back());
     try {
       while (true) {
-        // std::cout << "RUNNING ";
-        // frames.back().function->dump(std::cout, af.pc);
+        std::cout << "RUNNING ";
+        frames.back().function->dump(std::cout, af.pc);
         Instruction inst = af.instructions[af.pc];
         switch (inst.op) {
           case OP:
-            af.operators[inst.X](stack);
-            ++af.pc;
+              if (frames.back().function->instructions_source_[af.pc]->kind() == prim::CustomFusionGroup) {
+                  auto n = frames.back().function->instructions_source_[af.pc];
+                  auto o = af.operators[inst.X];
+                  std::cout << "Custom op running" << std::endl;
+                  af.operators[inst.X](stack);
+                  ++af.pc;
+                  std::cout << "Finished Custom op run" << std::endl;
+              } else {
+                  af.operators[inst.X](stack);
+                  ++af.pc;
+              }
             break;
           case LOAD:
             stack.emplace_back(reg(inst.X));

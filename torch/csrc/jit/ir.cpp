@@ -405,6 +405,11 @@ void Node::lint() const {
       // TODO: Typecheck the parameters
       g(attr::Subgraph)->lint();
       break;
+  case prim::CustomFusionGroup:
+      checkSameDevice(this);
+      // TODO: Typecheck the parameters
+      g(attr::Subgraph)->lint();
+      break;
   }
 }
 

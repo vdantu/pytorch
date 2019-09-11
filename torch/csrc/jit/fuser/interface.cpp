@@ -27,6 +27,11 @@ void runFusion(const int64_t key, Stack& stack) {
     fuser::runFallback(key, stack);
 }
 
+void runCustomFusion(const int64_t key, Stack& stack) {
+    std::cout << "This is the custom fusion" << std::endl;
+
+}
+
 bool canFuseOnCPU() {
   return fuser::hasFusionBackend(at::DeviceType::CPU) &&
       detail::cpu_fuser_enabled;

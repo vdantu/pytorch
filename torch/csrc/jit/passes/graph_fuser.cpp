@@ -1,3 +1,5 @@
+#include <iostream>
+#include <unordered_set>
 #include <torch/csrc/jit/passes/graph_fuser.h>
 
 #include <c10/util/Exception.h>
@@ -15,6 +17,17 @@
 
 #include <queue>
 #include <unordered_map>
+
+std::unordered_set<at::Symbol> whitelist_ops({
+                                                     at::Symbol::fromQualString("aten::batch_norm"),
+                                                     at::Symbol::fromQualString("aten::add_"),
+                                                     at::Symbol::fromQualString("aten::add"),
+                                                     at::Symbol::fromQualString("aten::relu_"),
+                                                     at::Symbol::fromQualString("aten::_convolution"),
+                                                     at::Symbol::fromQualString("aten::mul"),
+                                                     at::Symbol::fromQualString("aten::matmul"),
+                                                     at::Symbol::fromQualString("aten::mm"),
+                                             });
 
 namespace torch {
 namespace jit {
@@ -205,7 +218,7 @@ struct GraphFuser {
     // are not necessarily correct.
     if (node->owningBlock() != block_)
       return false;
-    return node->kind() == prim::FusionGroup || isSimpleMap(node);
+    return node->kind() == prim::FusionGroup || isSimpleMap(node) || node->kind() == prim::CustomFusionGroup;
   }
 
   bool isFusableCatNode(Node* node) {
@@ -430,6 +443,10 @@ struct GraphFuser {
     }
 
     auto group = consumer;
+    if (consumer->getIsFusable()) {
+        group->setIsFusable(true);
+    }
+
     if (consumer->kind() != kind_) {
       group = createSingletonFusionGroup(consumer);
     }
@@ -455,7 +472,7 @@ struct GraphFuser {
   }
 
   bool canFuseChunk(Node* consumer, Value* producer) {
-    if (consumer->kind() != prim::FusionGroup) {
+    if ((consumer->kind() != prim::FusionGroup) || (consumer->kind() != prim::CustomFusionGroup)){
       return false;
     }
     // Does the chunk have constant chunks/dim?
@@ -479,7 +496,7 @@ struct GraphFuser {
   }
 
   c10::optional<Node*> findFusedChunk(Node* group, Value* input) {
-    AT_ASSERT(group->kind() == prim::FusionGroup);
+    AT_ASSERT(group->kind() == prim::FusionGroup || group->kind() == prim::CustomFusionGroup);
     auto it = std::find(group->inputs().begin(), group->inputs().end(), input);
     if (it == group->inputs().end()) {
       return c10::nullopt;
@@ -561,7 +578,7 @@ struct GraphFuser {
   }
 
   graph_node_list::iterator scanNodeForChunks(Node* consumer) {
-    if (consumer->kind() == prim::FusionGroup) {
+    if ((consumer->kind() == prim::FusionGroup) || (consumer->kind() == prim::CustomFusionGroup)){
       auto inputs = sortReverseTopological(consumer->inputs());
       for (auto producer : inputs) {
         if (!canFuseChunk(consumer, producer)) {
@@ -958,7 +975,7 @@ struct GraphFuser {
   }
 
   void removeOutputsUsedOnlyInSize(Node* fusion_group) {
-    if (fusion_group->kind() != prim::FusionGroup)
+    if ((fusion_group->kind() != prim::FusionGroup) || (fusion_group->kind() != prim::CustomFusionGroup))
       return;
     auto subgraph = fusion_group->g(attr::Subgraph);
 
@@ -1008,7 +1025,7 @@ struct GraphFuser {
 
     // Fusion groups can be merged with concat's group if and only if
     // the value they produce isn't already coming from a concat
-    if (producer->node()->kind() == prim::FusionGroup) {
+    if ((producer->node()->kind() == prim::FusionGroup) || (producer->node()->kind() == prim::CustomFusionGroup)) {
       auto subgraph = producer->node()->g(attr::Subgraph);
       auto* node = subgraph->outputs().at(producer->offset())->node();
       return node->kind() != prim::FusedConcat;
@@ -1074,7 +1091,7 @@ struct GraphFuser {
 
   void optimizeFusedGraphs() {
     for (Node* node : block_->nodes()) {
-      if (node->kind() != prim::FusionGroup) {
+      if ((node->kind() != prim::FusionGroup) || (node->kind() != prim::FusionGroup)){
         continue;
       }
       auto subgraph = node->g(attr::Subgraph);
@@ -1193,8 +1210,47 @@ void PeepholeOptimizeShapeExpressions(Block* block) {
 
 } // anonymous namespace
 
+void dumpFusedGraphs(std::shared_ptr<Graph>& graph) {
+    for (auto itr=whitelist_ops.begin(); itr != whitelist_ops.end() ; itr++) {
+        std::cout << "WHITE LISTED: " << *itr << std::endl;
+    }
+    std::vector<Node *> subgraph_list;
+    auto git = graph->nodes().begin();
+    while (git != graph->nodes().end()) {
+        if ((git->kind() == Symbol::fromQualString("prim::FusionGroup")) ||
+                (git->kind() == Symbol::fromQualString("prim::CustomFusionGroup"))){
+            subgraph_list.push_back(*git);
+        }
+        git++;
+    }
+
+    for (auto fusion_group : subgraph_list) {
+        auto subgraph = fusion_group->g(attr::Subgraph);
+        auto hits = 0;
+        // two multiplications
+        for (const auto& n : subgraph->nodes()) {
+            (void)n;
+            std::cout << "START NODE" << std::endl;
+            n->dump();
+            std::cout << "END NODE" << std::endl;
+            hits++;
+        }
+        std::cout << "START SUBGRAPH" << std::endl;
+        subgraph->dump();
+        std::cout << "END SUBGRAPH" << std::endl;
+        std::cout << "Hits is "<< hits << std::endl;
+    }
+
+    std::cout << "START FULL GRAPH" << std::endl;
+    graph->dump();
+    std::cout << "END FULL GRAPH" << std::endl;
+}
+
 void FuseGraph(std::shared_ptr<Graph>& graph) {
-  GraphFuser(graph->block(), graph).run();
+    GraphFuser(graph->block(), graph).run();
+
+    //    dumpFusedGraphs(graph);
+
   // After FuseGraph some common subexpressions may come back
   EliminateCommonSubexpression(graph);
   // We might have emitted a fair amount of useless shape propagating code, so
@@ -1202,6 +1258,10 @@ void FuseGraph(std::shared_ptr<Graph>& graph) {
   EliminateDeadCode(graph);
   // Improve the quality of shape propagation code that was left
   PeepholeOptimizeShapeExpressions(graph->block());
+}
+
+std::unordered_set<at::Symbol> get_whitelist_ops() {
+    return whitelist_ops;
 }
 
 void CustomFuseGraph(

@@ -28,5 +28,7 @@ TORCH_API void CustomFuseGraph(
     Symbol kind,
     size_t arg_limit=std::numeric_limits<size_t>::max());
 
+TORCH_API std::unordered_set<at::Symbol> get_whitelist_ops();
+
 } // namespace jit
 } // namespace torch

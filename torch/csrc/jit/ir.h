@@ -238,6 +238,7 @@ struct TORCH_API Node {
 
  private:
   const NodeKind kind_;
+  bool isFusable = false;
   std::vector<Value*> inputs_;
   std::vector<Value*> outputs_;
   // subblocks
@@ -469,6 +470,14 @@ struct TORCH_API Node {
 
   at::ArrayRef<Block*> blocks() {
     return blocks_;
+  }
+
+  void setIsFusable(bool flag) {
+      isFusable = flag;
+  }
+
+  bool getIsFusable() {
+      return isFusable;
   }
   at::ArrayRef<const Block*> blocks() const {
     // Vectors are not convertible in const-ness of elements, but

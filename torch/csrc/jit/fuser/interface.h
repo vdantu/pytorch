@@ -23,6 +23,7 @@ TORCH_API int64_t registerFusion(const Node* fusion_group);
 // In some cases a fusion cannot be run and a fallback path where
 // PyTorch's interpreter runs the graph instead is attempted.
 TORCH_API void runFusion(const int64_t key, Stack& stack);
+TORCH_API void runCustomFusion(const int64_t key, Stack& stack);
 
 // True if the respective devices can fuse, false otherwise
 TORCH_API bool canFuseOnCPU();
