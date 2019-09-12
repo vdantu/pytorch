@@ -254,7 +254,6 @@ RegisterOperators reg(
                  return [key](Stack& stack) {
                      std::cout << "Running my custom fusion" << std::endl;
                      RECORD_FUNCTION("CustomFusionGroup", std::vector<c10::IValue>());
-                     runFusion(key, stack);
                      runCustomFusion(key, stack);
                      return 0;
                  };
