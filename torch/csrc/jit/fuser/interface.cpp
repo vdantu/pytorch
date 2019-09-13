@@ -29,7 +29,7 @@ void runFusion(const int64_t key, Stack& stack) {
 
 void runCustomFusion(const int64_t key, Stack& stack) {
     std::cout << "This is the custom fusion" << std::endl;
-    fuser::runFallback(key, stack);
+    fuser::runCustomFallback(key, stack);
 }
 
 bool canFuseOnCPU() {

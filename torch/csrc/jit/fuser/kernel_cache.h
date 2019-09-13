@@ -3,6 +3,7 @@
 #include <c10/util/Optional.h>
 #include <torch/csrc/WindowsTorchApiMacro.h>
 #include <torch/csrc/jit/fuser/kernel_spec.h>
+#include <torch/csrc/jit/script/module.h>
 #include <torch/csrc/jit/ir.h>
 
 #include <cstdint>
@@ -30,6 +31,9 @@ TORCH_API at::optional<KernelSpec*> retrieve(const int64_t key);
 // Returns the size of the fusion key -> KernelSpec cache.
 // Only used for testing.
 TORCH_API int64_t debugNumCachedKernelSpecs();
+
+TORCH_API at::optional<torch::jit::script::Module> retrieveModule(const int64_t key);
+TORCH_API int64_t store(std::shared_ptr<Graph> graph, torch::jit::script::Module module);
 
 } // namespace fuser
 } // namespace jit

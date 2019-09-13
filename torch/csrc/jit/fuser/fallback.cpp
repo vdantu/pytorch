@@ -48,6 +48,16 @@ void runFallback(int64_t key, Stack& stack) {
   InterpreterState{(*maybe_spec)->code()}.run(stack);
 }
 
+void runCustomFallback(int64_t key, Stack& stack) {
+    auto maybe_spec = retrieve(key);
+    at::optional<torch::jit::script::Module> module = retrieveModule(key);
+    std::string fileName = "model_" + std::to_string(key) + ".pt";
+    module.value().save(fileName);
+    if (!maybe_spec)
+        throw std::runtime_error("Failed to find fusion spec to run fallback.");
+    InterpreterState{(*maybe_spec)->code()}.run(stack);
+}
+
 } // namespace fuser
 } // namespace jit
 } // namespace torch

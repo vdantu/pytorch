@@ -8,6 +8,7 @@
 #include <torch/csrc/jit/fuser/interface.h>
 #include <torch/csrc/jit/fuser/kernel_cache.h>
 #include <torch/csrc/jit/fuser/tensor_desc.h>
+#include <torch/csrc/jit/script/module.h>
 #include <torch/csrc/jit/ir.h>
 #include <torch/csrc/jit/operator.h>
 #include <torch/csrc/jit/passes/canonicalize.h>
@@ -184,7 +185,21 @@ int64_t registerFusion(const Node* fusion_group) {
   // runs some code under no-fusions mode and then runs some code with fusions
   // enabled, the second time around the returned spec from the cache should
   // be a valid spec (must have had upfrontCompilation run on it).
-  const auto key = store(graph);
+    int64_t  key;
+    if (fusion_group->kind() == prim::CustomFusionGroup) {
+        std::string className = fusion_group->kind().toUnqualString() + std::to_string(key);
+        torch::jit::script::Module module(className);
+        auto g = fusion_group->g(attr::Subgraph);
+        auto v = g->insertInput(0, "self");
+        v->setType(module.module_object()->type());
+        const auto name = c10::QualifiedName(module.name(), "forward");
+        auto method = module.class_compilation_unit()->create_function(name, g);
+        module.type()->addMethod(method);
+        std::cout << "Module making business... " << std::endl;
+        key = store(graph, module);
+    } else {
+        key = store(graph);
+    }
   const auto maybe_retrieved_spec = retrieve(key);
   AT_ASSERT(maybe_retrieved_spec);
   upfrontCompilation(**maybe_retrieved_spec);

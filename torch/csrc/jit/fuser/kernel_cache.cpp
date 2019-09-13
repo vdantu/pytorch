@@ -1,15 +1,16 @@
 #include <torch/csrc/jit/fuser/kernel_cache.h>
 #include <torch/csrc/jit/passes/canonicalize.h>
 #include <torch/csrc/jit/passes/shape_analysis.h>
+#include <torch/csrc/jit/script/module.h>
 
 #include <cstdint>
 #include <mutex>
 #include <unordered_map>
 
+using Module = torch::jit::script::Module;
 namespace torch {
 namespace jit {
 namespace fuser {
-
 struct KernelCacheImpl {
   // Note: std::unordered_map does not invalidate references even if rehashing
   // occurs. This is a critical property for thread-safety.
@@ -22,6 +23,7 @@ struct KernelCacheImpl {
   // Map of pretty-printed graph string to fusion key
   // Used to check if a graph has already been cached in specMap_
   std::unordered_map<std::string, int64_t> graphToKey_;
+  std::unordered_map<int64_t , torch::jit::script::Module> moduleMap_;
 };
 
 static KernelCacheImpl& getKernelCache() {
@@ -59,6 +61,21 @@ int64_t store(std::shared_ptr<Graph> graph) {
   return key;
 }
 
+int64_t store(std::shared_ptr<Graph> graph, Module module) {
+    auto& cache = getKernelCache();
+    std::string repr = graph->toString(false);
+
+    std::lock_guard<std::mutex> guard{cache.mutex_};
+    const auto key = cache.kernel_counter++;
+    cache.specMap_.emplace(
+            std::piecewise_construct,
+            std::forward_as_tuple(key),
+            std::forward_as_tuple(key, graph));
+        cache.graphToKey_.emplace(std::make_pair(std::move(repr), key));
+        cache.moduleMap_.emplace(std::make_pair(key, module));
+    return key;
+}
+
 // XXX: Does not grab mutex
 static at::optional<KernelSpec*> nolock_retrieve(
     KernelCacheImpl& cache,
@@ -73,6 +90,14 @@ at::optional<KernelSpec*> retrieve(const int64_t key) {
   auto& cache = getKernelCache();
   std::lock_guard<std::mutex> guard{cache.mutex_};
   return nolock_retrieve(cache, key);
+}
+
+at::optional<Module> retrieveModule(const int64_t key) {
+    auto& cache =  getKernelCache();
+    std::lock_guard<std::mutex> guard{cache.mutex_};
+    auto it = cache.moduleMap_.find(key);
+    if (it == cache.moduleMap_.end()) return at::nullopt;
+    return it->second;
 }
 
 // precondition: graph has been normalized via normalizeGraphForCache

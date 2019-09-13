@@ -9,7 +9,7 @@ namespace jit {
 namespace fuser {
 
 void runFallback(int64_t key, Stack& stack);
-
+void runCustomFallback(int64_t key, Stack& stack);
 } // namespace fuser
 } // namespace jit
 } // namespace torch

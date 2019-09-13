@@ -783,11 +783,11 @@ struct PythonPrintPass {
     splitLongInlines(node->inputs());
     switch (node->kind()) {
       case prim::Return:
-        if (enforce_importable_ && node->inputs().size() != 1) {
-          throw script::ErrorReport(node->sourceRange())
-              << "Exportable methods must have a single return value. "
-              << "Normal use of ScriptMethods should enforce this";
-        }
+//        if (enforce_importable_ && node->inputs().size() != 1) {
+//          throw script::ErrorReport(node->sourceRange())
+//              << "Exportable methods must have a single return value. "
+//              << "Normal use of ScriptMethods should enforce this";
+//        }
         if (node->inputs().size() > 0) {
           indent();
           body_ << "return ";

@@ -1247,9 +1247,8 @@ void dumpFusedGraphs(std::shared_ptr<Graph>& graph) {
 }
 
 void FuseGraph(std::shared_ptr<Graph>& graph) {
-    GraphFuser(graph->block(), graph).run();
-
-    //    dumpFusedGraphs(graph);
+  GraphFuser(graph->block(), graph).run();
+  dumpFusedGraphs(graph);
 
   // After FuseGraph some common subexpressions may come back
   EliminateCommonSubexpression(graph);
